@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bus & Weather Dashboard (Production Ready)</title>
+  <title>Bus & Weather Dashboard (Enterprise Production)</title>
   <script src="config.js"></script>
   <style>
     /* 全局重設 */
@@ -241,7 +241,7 @@
         <div id="clock" class="time-digital">00:00:00</div>
         <div id="date-string" class="date-text">----年--月--日 星期-</div>
       </div>
-      <div id="notice-board" class="notice-box">系統初始化...</div>
+      <div id="notice-board" class="notice-box">系統安全初始化...</div>
     </header>
 
     <main class="main-content">
@@ -268,8 +268,12 @@
   </div>
 
   <script>
-    // 確保成功取得全域配置
+    // 嚴格配置檢查機制
     const config = window.DASHBOARD_CONFIG;
+    if (!config) {
+      document.body.innerHTML = "<h1 style='color:red;padding:20px;'>[Fatal] config.js 未能成功掛載至 window。</h1>";
+      throw new Error("Config verification failed.");
+    }
 
     const DOM = {
       clock: document.getElementById('clock'),
@@ -283,26 +287,22 @@
       warningList: document.getElementById('warning-list')
     };
 
-    /**
-     * 映射天文台天氣圖示編號至 iPad 系統原生高畫質 Emoji
-     * 確保零網絡依賴、永不碎圖，且在黑底高對比度下視覺效果極佳
-     */
-    function getWeatherEmoji(iconId) {
-      const id = parseInt(iconId, 10);
-      if (id >= 50 && id <= 52) return "☀️"; // 陽光/晴朗
-      if (id >= 53 && id <= 54) return "🌤️"; // 初時有陽光/多雲間中有陽光
-      if (id >= 60 && id <= 61) return "☁️"; // 多雲/陰天
-      if (id >= 62 && id <= 65) return "🌧️"; // 有雨/驟雨
-      if (id >= 70 && id <= 77) return "⛈️"; // 雷暴
-      if (id >= 80 && id <= 85) return "🌫️"; // 大霧/吹強風
-      if (id >= 90 && id <= 93) return "❄️"; // 下雪/結霜
-      return "✨";
-    }
-
     function updateClock() {
       const now = new Date();
       DOM.clock.textContent = now.toLocaleTimeString('zh-HK', { hour12: false });
       DOM.dateString.textContent = now.toLocaleDateString('zh-HK', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    }
+
+    function getWeatherEmoji(iconId) {
+      const id = parseInt(iconId, 10);
+      if (id >= 50 && id <= 52) return "☀️";
+      if (id >= 53 && id <= 54) return "🌤️";
+      if (id >= 60 && id <= 61) return "☁️";
+      if (id >= 62 && id <= 65) return "🌧️";
+      if (id >= 70 && id <= 77) return "⛈️";
+      if (id >= 80 && id <= 85) return "🌫️";
+      if (id >= 90 && id <= 93) return "❄️";
+      return "✨";
     }
 
     function initBusLayout() {
@@ -332,21 +332,27 @@
       });
     }
 
+    /**
+     * 區塊 B：獲取九巴 ETA 數據（高可用 CORS 代理優化版）
+     */
     async function fetchBusETA() {
       const now = new Date();
+      
       for (let i = 0; i < config.busRoutes.length; i++) {
         const target = config.busRoutes[i];
         if (!target.stopId || !target.route) continue;
 
         try {
-          // 【重大修正】移除 URL 尾部的 ?t=... 參數，遵循九巴 API Gateway 嚴格路由匹配規則
-          const url = `https://data.etabus.kmb.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
+          const targetUrl = `https://data.etabus.kmb.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
           
-          // 使用 Headers 明確要求免快取，不破壞 URL 結構
-          const response = await fetch(url, { cache: "no-store" });
+          // 【工業級修復】利用 corsproxy.io 線上隧道中轉請求，繞過瀏覽器 GitHub Pages 的同源攔截
+          // 網卡層會自動在後方附帶 Origin 標頭通關
+          const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+          
+          const response = await fetch(proxiedUrl, { cache: "no-store" });
           
           if (!response.ok) {
-            document.getElementById(`eta-${i}-0-time`).textContent = `代碼 ${response.status}`;
+            document.getElementById(`eta-${i}-0-time`).textContent = `HTTP ${response.status}`;
             continue;
           }
           
@@ -364,20 +370,21 @@
               timeEl.textContent = diffMins === 0 ? "即將到站" : `${diffMins} 分鐘`;
               rmkEl.textContent = etaData.rmk_tc || "";
             } else {
-              // 如果回傳空陣列，代表 API 運作正常但此時無班次（或 config 的 StopID 與 Route 對不上）
               timeEl.textContent = seq === 0 ? "暫無班次" : "--";
               rmkEl.textContent = "";
             }
           }
         } catch (error) {
-          console.error(`KMB Error [${target.route}]:`, error);
-          document.getElementById(`eta-${i}-0-time`).textContent = "連線失敗";
+          console.error(`KMB CORS Error [${target.route}]:`, error);
+          document.getElementById(`eta-${i}-0-time`).textContent = "連線受阻";
         }
       }
     }
 
+    /**
+     * 區塊 C：獲取天文台天氣及警告數據
+     */
     async function fetchWeather() {
-      // 天文台官方 API 允許 Query 參數，保留防快取機制
       const cacheBust = `&_=${Date.now()}`;
       const weatherUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc${cacheBust}`;
       const warningUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc${cacheBust}`;
@@ -396,11 +403,11 @@
           DOM.uvDisplay.style.display = 'none';
         }
         
-        // 【優化方案】使用雙軌防禦渲染：優先嘗試加載圖片，若被防盜鏈阻擋 (onerror) 則瞬間切換為無損原生 Emoji
         if (data.icon?.length > 0) {
           const iconId = data.icon[0];
           const fallbackEmoji = getWeatherEmoji(iconId);
           
+          // 雙軌防禦渲染：若圖片遭跨域阻擋 (onerror)，瞬時切換為 iPad 原生高清晰度 Emoji
           DOM.weatherIcon.innerHTML = `
             <img src="https://www.hko.gov.hk/images/HKOWeatherIcon/pic${iconId}.png" 
                  alt="Weather" 
@@ -410,7 +417,7 @@
         }
       } catch (e) { 
         console.error("Weather Error:", e); 
-        DOM.tempDisplay.textContent = "出錯"; 
+        DOM.tempDisplay.textContent = "網路錯誤"; 
       }
 
       try {
