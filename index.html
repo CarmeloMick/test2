@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bus & Weather Dashboard</title>
-  <script src="config.js"></script>
+  <script>
+    // 監聽全域語法錯誤，捕捉 config.js 內部可能存在的 Syntax Error
+    window.addEventListener('error', function(e) {
+      if (e.filename && e.filename.indexOf('config.js') !== -1) {
+        alert('【除錯警報】config.js 載入成功但有語法錯誤：\n' + e.message + '\n行號: ' + e.lineno);
+      }
+    }, true);
+  </script>
+
+  <script src="config.js" onerror="alert('【除錯警報】config.js 徹底載入失敗！\n瀏覽器嘗試請求的完整網址為：\n' + this.src + '\n\n請檢查網址結尾是否有加上 / 號')"></script>
   <style>
     /* 全局重設：確保無滾動條，完美填滿全屏 */
     * {
