@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bus & Weather Dashboard (Smart Resolver Edition)</title>
+  <title>Bus & Weather Dashboard (Enterprise Production)</title>
   <script src="config.js"></script>
   <style>
     /* 全局重設：確保無滾動條，完美填滿全屏 */
@@ -54,7 +54,7 @@
       color: #aaaaaa;
       margin-top: 0.3vh;
     }
-    .notice-box {
+    .notice-board {
       font-size: 2.2vh;
       color: #ffffff;
       background-color: #1a1a1a;
@@ -75,12 +75,12 @@
       min-height: 0;
     }
 
-    /* 區塊 B：九巴 ETA 顯示板 (適應 7 條線路壓縮) */
+    /* 區塊 B：九巴 ETA 顯示板 (自適應壓縮排版，容納 7 條線路) */
     .block-bus {
       flex: 1.7;
       display: flex;
       flex-direction: column;
-      gap: 0.8vh; /* 縮小間距以容納更多線路 */
+      gap: 0.6vh;
       min-height: 0;
     }
     .bus-row {
@@ -98,7 +98,7 @@
       flex-direction: column;
     }
     .bus-route {
-      font-size: 3.8vh; /* 微調字體大小，確保不溢出 */
+      font-size: 3.6vh;
       font-weight: 900;
       color: #ffcc00;
       line-height: 1;
@@ -223,7 +223,7 @@
       .main-content { flex-direction: column; }
       .block-header { height: 9vh; }
       .time-digital { font-size: 4vh; }
-      .notice-box { font-size: 2vh; }
+      .notice-board { font-size: 2vh; }
       .block-bus { flex: 1.4; gap: 0.5vh; }
       .bus-route { font-size: 3.2vh; }
       .eta-time { font-size: 3vh; }
@@ -240,7 +240,7 @@
         <div id="clock" class="time-digital">00:00:00</div>
         <div id="date-string" class="date-text">----年--月--日 星期-</div>
       </div>
-      <div id="notice-board" class="notice-box">站點數據解密解析中...</div>
+      <div id="notice-board" class="notice-board">核心架構加載中...</div>
     </header>
 
     <main class="main-content">
@@ -269,7 +269,7 @@
   <script>
     const config = window.DASHBOARD_CONFIG;
     
-    // 全域記憶體字典：儲存動態解析出來的 16 位元加密 stopId 陣列
+    // 全域記憶體變數：儲存解析出的 16 位元加密車站 HASH
     let globalResolvedStopIds = [];
 
     const DOM = {
@@ -328,58 +328,79 @@
     }
 
     /**
-     * 【智能核心】動態站點解析引擎
-     * 啟動時僅執行一次：下載全港巴士站名冊，根據中文名模糊/精準匹配，提取出對應的所有真實 16 位元 HASH ID
+     * 【智慧雙軌解析引擎】內建 LocalStorage 智慧快取控制
      */
     async function resolveStopIds() {
+      const CACHE_KEY = "DASHBOARD_STOP_HASH_CACHE_V2";
+      // 依據目前用戶設定的中文站名序列，產生唯一的特徵碼
+      const currentConfigHash = btoa(encodeURIComponent(config.busRoutes.map(r => r.stopName).join(',')));
+
+      // 嘗試讀取 iPad 本地記憶體快取
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          // 如果用戶沒有改動站名，且快取完好，直接 0 毫秒秒切載入！
+          if (parsed.hash === currentConfigHash && parsed.ids && parsed.ids.length > 0) {
+            globalResolvedStopIds = parsed.ids;
+            DOM.noticeBoard.textContent = config.topNoticeText;
+            return true;
+          }
+        } catch (e) {
+          localStorage.removeItem(CACHE_KEY);
+        }
+      }
+
+      // 若無快取或配置已變更，才啟動單次名冊下載（引導至正確的九巴官方靜態 CDN）
+      DOM.noticeBoard.textContent = "首次啟動：正在下載全港車站名冊 (5MB)...";
       try {
-        // 收集用戶配置中所有不重複的中文站名（例如：["富豪花園", "沙田市中心總站"]）
-        const uniqueNames = [...new Set(config.busRoutes.map(r => r.stopName))];
-        
-        // 拉取政府全港標準車站名冊 (CORS 原生開啟)
-        const res = await fetch('https://rt.data.gov.hk/v1/transport/kmb/stop');
-        if (!res.ok) throw new Error("未能連線至政府車站名冊伺服器");
+        const res = await fetch('https://data.etabus.kmb.hk/v1/transport/kmb/stop');
+        if (!res.ok) throw new Error("CDN 拒絕連線");
         const json = await res.json();
         const allStops = json.data || [];
 
-        // 建立快取清單
+        const uniqueTargetNames = [...new Set(config.busRoutes.map(r => r.stopName))];
         const matchedIds = [];
+
         allStops.forEach(s => {
-          if (uniqueNames.includes(s.name_tc)) {
-            matchedIds.push(s.stop); // 提取出加密的 16位元 ID
+          if (uniqueTargetNames.includes(s.name_tc)) {
+            matchedIds.push(s.stop);
           }
         });
 
-        // 移除重複的 ID 綁定
         globalResolvedStopIds = [...new Set(matchedIds)];
-        
+
         if (globalResolvedStopIds.length === 0) {
-          DOM.noticeBoard.textContent = "【配置錯誤】未能識別輸入的巴士站名";
+          DOM.noticeBoard.textContent = "【配置錯誤】找不到對應的中文巴士站名";
           return false;
         }
-        
+
+        // 寫入本地 LocalStorage 快取，讓 iPad 下次開機享有零延遲體驗
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          hash: currentConfigHash,
+          ids: globalResolvedStopIds
+        }));
+
         DOM.noticeBoard.textContent = config.topNoticeText;
         return true;
       } catch (err) {
-        console.error("Stop resolution fatal error:", err);
-        DOM.noticeBoard.textContent = "站點解析失敗，請重新整理頁面";
+        console.error("Stop directory download failed:", err);
+        DOM.noticeBoard.textContent = "名冊下載失敗，請檢查網路並重新整理";
         return false;
       }
     }
 
     /**
-     * 區塊 B：實時批次獲取 ETA 數據 (Batch Request Optimization)
-     * 原理：富豪花園包含兩個方向的 HASH。我們直接同時發送這幾個 HASH 的請求（只需 2-3 次請求），
-     * 撈出所有行經該站點的線路資訊，再分發給 7 個 UI Row。效率比單條線路查詢高出 300%。
+     * 區塊 B：批次實時獲取預報 (Batch Request Execution)
      */
     async function fetchBusETA() {
       if (globalResolvedStopIds.length === 0) return;
       const now = new Date();
 
-      // 建立一個對應結構，用來暫存這 7 條路線撈到的最新班次
+      // 初始化各線路班次容器
       const bRouteResults = config.busRoutes.map(() => []);
 
-      // 批次併發請求所有相關的 Stop ID 數據
+      // 同時發起經確認的 Stop ID 的實時預報請求 (指向政府實時 ETA 網關)
       const promises = globalResolvedStopIds.map(async (stopId) => {
         try {
           const url = `https://rt.data.gov.hk/v1/transport/kmb/stop-eta/${stopId}`;
@@ -388,7 +409,6 @@
           const json = await res.json();
           const etaList = json.data || [];
 
-          // 將撈到的所有 ETA 分流投遞到對應的自訂路線中
           config.busRoutes.forEach((userConfig, index) => {
             const matches = etaList.filter(item => item.route === userConfig.route && item.eta);
             if (matches.length > 0) {
@@ -396,17 +416,15 @@
             }
           });
         } catch (e) {
-          console.error(`Fetch error for stop ${stopId}:`, e);
+          console.error(`ETA fetch error for stop ${stopId}:`, e);
         }
       });
 
       await Promise.allSettled(promises);
 
-      // 數據收納完畢，開始更新 7 條路線的 UI 渲染
+      // UI 渲染與時間自適應去重
       config.busRoutes.forEach((userConfig, i) => {
         const rawEtas = bRouteResults[i];
-        
-        // 由於「富豪花園」有兩個方向的 HASH，或者是同站有不同車次，此處必須進行嚴格的去重與時間排序
         const uniqueEtas = [];
         const seenTimes = new Set();
 
@@ -417,10 +435,9 @@
           }
         });
 
-        // 依時間由近到遠排序
+        // 排序：由近至遠
         uniqueEtas.sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
-        // 更新前兩班車的計時器
         for (let seq = 0; seq < 2; seq++) {
           const timeEl = document.getElementById(`eta-${i}-${seq}-time`);
           const rmkEl = document.getElementById(`eta-${i}-${seq}-rmk`);
@@ -428,8 +445,6 @@
           if (uniqueEtas[seq]) {
             const etaData = uniqueEtas[seq];
             const diffMins = Math.max(0, Math.floor((new Date(etaData.eta) - now) / 60000));
-            
-            // 完美對齊官方 App 邏輯
             timeEl.textContent = diffMins === 0 ? "即將到站" : `${diffMins} 分鐘`;
             rmkEl.textContent = etaData.rmk_tc || "";
           } else {
@@ -489,20 +504,20 @@
     }
 
     /**
-     * 主排程啟動控制器
+     * 排程啟動引擎
      */
     async function startEngine() {
       updateClock();
       setInterval(updateClock, 1000);
 
-      // 第一步：動態解析站點名稱
+      // 第一步：智慧快取解析（首次下載 5MB 名冊，之後秒開）
       const isResolved = await resolveStopIds();
-      if (!isResolved) return; // 解析失敗則熔斷，防止盲目發送請求
+      if (!isResolved) return; 
 
-      // 第二步：建構 7 條路線的 UI 介面骨架
+      // 第二步：動態繪製 7 條路線 UI 骨架
       initBusLayout();
 
-      // 第三步：啟動數據輪詢
+      // 第三步：啟動定時輪詢
       async function triggerRefresh() {
         await Promise.allSettled([fetchBusETA(), fetchWeather()]);
       }
