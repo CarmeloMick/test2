@@ -67,7 +67,7 @@
       text-overflow: ellipsis;
     }
 
-    /* 中下部主內容分佈：橫屏預設 */
+    /* 中下部主內容分佈 */
     .main-content {
       display: flex;
       flex: 1;
@@ -75,7 +75,7 @@
       min-height: 0;
     }
 
-    /* 區塊 B：九巴 ETA 顯示板 (自適應壓縮排版，容納 7 條線路) */
+    /* 區塊 B：九巴 ETA 顯示板 (自適應壓縮排版，完美容納 7 條線路) */
     .block-bus {
       flex: 1.7;
       display: flex;
@@ -223,7 +223,7 @@
       .main-content { flex-direction: column; }
       .block-header { height: 9vh; }
       .time-digital { font-size: 4vh; }
-      .notice-board { font-size: 2vh; }
+      .notice-box { font-size: 2vh; }
       .block-bus { flex: 1.4; gap: 0.5vh; }
       .bus-route { font-size: 3.2vh; }
       .eta-time { font-size: 3vh; }
@@ -240,7 +240,7 @@
         <div id="clock" class="time-digital">00:00:00</div>
         <div id="date-string" class="date-text">----年--月--日 星期-</div>
       </div>
-      <div id="notice-board" class="notice-board">核心架構加載中...</div>
+      <div id="notice-board" class="notice-board">系統安全初始化...</div>
     </header>
 
     <main class="main-content">
@@ -269,7 +269,7 @@
   <script>
     const config = window.DASHBOARD_CONFIG;
     
-    // 全域記憶體變數：儲存解析出的 16 位元加密車站 HASH
+    // 全域記憶體：儲存最終生效的 16 位元 Stop HASH ID 清單
     let globalResolvedStopIds = [];
 
     const DOM = {
@@ -328,19 +328,29 @@
     }
 
     /**
-     * 【智慧雙軌解析引擎】內建 LocalStorage 智慧快取控制
+     * 【智慧雙模解析引擎】
+     * 優先檢測手動直通車設定（config.js 內有 stopId），若有則 0 毫秒直接通關；
+     * 否則才透過高可用 CORS 代理下載並快取名冊。
      */
     async function resolveStopIds() {
-      const CACHE_KEY = "DASHBOARD_STOP_HASH_CACHE_V2";
-      // 依據目前用戶設定的中文站名序列，產生唯一的特徵碼
-      const currentConfigHash = btoa(encodeURIComponent(config.busRoutes.map(r => r.stopName).join(',')));
+      // 檢查是否所有線路都已經配置了直通車 stopId
+      const hasDirectIds = config.busRoutes.every(r => r.stopId && r.stopId.trim() !== "");
+      
+      if (hasDirectIds) {
+        // 【直通車模式解鎖】完美繞過所有 5MB 名冊下載與網路風險
+        globalResolvedStopIds = [...new Set(config.busRoutes.map(r => r.stopId))];
+        DOM.noticeBoard.textContent = config.topNoticeText;
+        return true;
+      }
 
-      // 嘗試讀取 iPad 本地記憶體快取
+      // 以下為智能中文站名動態解析與 LocalStorage 快取備用線路
+      const CACHE_KEY = "DASHBOARD_STOP_HASH_CACHE_V3";
+      const currentConfigHash = btoa(encodeURIComponent(config.busRoutes.map(r => r.stopName || r.stopId).join(',')));
+
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
-          // 如果用戶沒有改動站名，且快取完好，直接 0 毫秒秒切載入！
           if (parsed.hash === currentConfigHash && parsed.ids && parsed.ids.length > 0) {
             globalResolvedStopIds = parsed.ids;
             DOM.noticeBoard.textContent = config.topNoticeText;
@@ -351,11 +361,12 @@
         }
       }
 
-      // 若無快取或配置已變更，才啟動單次名冊下載（引導至正確的九巴官方靜態 CDN）
-      DOM.noticeBoard.textContent = "首次啟動：正在下載全港車站名冊 (5MB)...";
+      DOM.noticeBoard.textContent = "正在透過安全隧道同步全港名冊 (5MB)...";
       try {
-        const res = await fetch('https://data.etabus.kmb.hk/v1/transport/kmb/stop');
-        if (!res.ok) throw new Error("CDN 拒絕連線");
+        // 使用高可用、允許巨型檔案轉發的 CORS 代理下載靜態名冊
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://data.etabus.kmb.hk/v1/transport/kmb/stop')}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error("Proxy connection dropped");
         const json = await res.json();
         const allStops = json.data || [];
 
@@ -371,11 +382,10 @@
         globalResolvedStopIds = [...new Set(matchedIds)];
 
         if (globalResolvedStopIds.length === 0) {
-          DOM.noticeBoard.textContent = "【配置錯誤】找不到對應的中文巴士站名";
+          DOM.noticeBoard.textContent = "【配置錯誤】未填寫 stopId 且中文站名無法識別";
           return false;
         }
 
-        // 寫入本地 LocalStorage 快取，讓 iPad 下次開機享有零延遲體驗
         localStorage.setItem(CACHE_KEY, JSON.stringify({
           hash: currentConfigHash,
           ids: globalResolvedStopIds
@@ -384,23 +394,20 @@
         DOM.noticeBoard.textContent = config.topNoticeText;
         return true;
       } catch (err) {
-        console.error("Stop directory download failed:", err);
-        DOM.noticeBoard.textContent = "名冊下載失敗，請檢查網路並重新整理";
+        console.error("Stop directory resolution failure:", err);
+        DOM.noticeBoard.textContent = "動態解析失敗，請在 config.js 中直接填寫 stopId 啟用直通車";
         return false;
       }
     }
 
     /**
-     * 區塊 B：批次實時獲取預報 (Batch Request Execution)
+     * 區塊 B：批次實時獲取預報 (Batch Request Execution 直連政府網關)
      */
     async function fetchBusETA() {
       if (globalResolvedStopIds.length === 0) return;
       const now = new Date();
-
-      // 初始化各線路班次容器
       const bRouteResults = config.busRoutes.map(() => []);
 
-      // 同時發起經確認的 Stop ID 的實時預報請求 (指向政府實時 ETA 網關)
       const promises = globalResolvedStopIds.map(async (stopId) => {
         try {
           const url = `https://rt.data.gov.hk/v1/transport/kmb/stop-eta/${stopId}`;
@@ -410,19 +417,23 @@
           const etaList = json.data || [];
 
           config.busRoutes.forEach((userConfig, index) => {
-            const matches = etaList.filter(item => item.route === userConfig.route && item.eta);
-            if (matches.length > 0) {
-              bRouteResults[index] = bRouteResults[index].concat(matches);
+            // 同時兼容手動 stopId 直通匹配 與 動態解析匹配
+            const isMatchStop = userConfig.stopId ? (stopId === userConfig.stopId) : true;
+            if (isMatchStop) {
+              const matches = etaList.filter(item => item.route === userConfig.route && item.eta);
+              if (matches.length > 0) {
+                bRouteResults[index] = bRouteResults[index].concat(matches);
+              }
             }
           });
         } catch (e) {
-          console.error(`ETA fetch error for stop ${stopId}:`, e);
+          console.error(`ETA fetch error for ${stopId}:`, e);
         }
       });
 
       await Promise.allSettled(promises);
 
-      // UI 渲染與時間自適應去重
+      // 渲染與時間自動去重排序
       config.busRoutes.forEach((userConfig, i) => {
         const rawEtas = bRouteResults[i];
         const uniqueEtas = [];
@@ -435,7 +446,6 @@
           }
         });
 
-        // 排序：由近至遠
         uniqueEtas.sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
         for (let seq = 0; seq < 2; seq++) {
@@ -510,11 +520,11 @@
       updateClock();
       setInterval(updateClock, 1000);
 
-      // 第一步：智慧快取解析（首次下載 5MB 名冊，之後秒開）
+      // 第一步：智慧雙模解析（檢測到配置檔內的 stopId，直接秒切開通，零阻擋）
       const isResolved = await resolveStopIds();
       if (!isResolved) return; 
 
-      // 第二步：動態繪製 7 條路線 UI 骨架
+      // 第二步：繪製 7 條路線 UI 骨架
       initBusLayout();
 
       // 第三步：啟動定時輪詢
