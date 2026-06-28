@@ -1,19 +1,15 @@
-/**
- * 舊 iPad 專用資訊看板 - 用戶自訂設定檔
- * 修正版：明確掛載至全域 window 物件
- */
-window.DASHBOARD_CONFIG = {
-  // 區塊 A：頂部自訂提示文字
-  topNoticeText: "提醒：出門前請記得帶銀包、鎖匙，注意交通安全！",
+// config.js - 企業級設定
+window.DASHBOARD_CONFIG = (function() {
+  return {
+    // 建議生產環境改為 60 秒，避免過度頻繁發送請求
+    updateIntervalMs: 30000,
+    topNoticeText: '🚀 生產環境穩定運行中 (改良版)',
 
-  // 區塊 B：4 條指定的九巴路線與對應的巴士站 ID (Stop ID)
-  busRoutes: [
-    { route: "268C", stopId: "B86A9E27A23E3A6C", label: "往 觀塘碼頭" },
-    { route: "968",  stopId: "85B04889C5D65A4B", label: "往 銅鑼灣 (天后)" },
-    { route: "68X",  stopId: "9F5D33A12E8B4C7D", label: "往 旺角柏景灣" },
-    { route: "64K",  stopId: "A1B2C3D4E5F60123", label: "往 大埔墟站" }
-  ],
-
-  // 數據自動更新週期（毫秒），1 分鐘 = 60000 毫秒
-  updateIntervalMs: 60000
-};
+    // 定義欲追蹤的路線
+    busRoutes: [
+      { route: '1A', stopId: '1A-MING-TAK', label: '往 尖沙咀碼頭' },
+      { route: '968', stopId: '968-CENTRAL', label: '往 銅鑼灣 (天后)' },
+      { route: 'B1', stopId: 'B1-LOK-MA', label: '往 落馬洲站' }
+    ]
+  };
+})();
