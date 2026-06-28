@@ -1,6 +1,6 @@
 /**
  * 舊 iPad 專用資訊看板 - 用戶自訂設定檔
- * 數據源：香港政府開放數據平台指定九巴專線 (data.etabus.kmb.hk)
+ * 數據源：香港政府開放數據平台官方九巴專線 (data.etabus.gov.hk)
  */
 window.DASHBOARD_CONFIG = {
   // 區塊 A：頂部自訂提示文字
