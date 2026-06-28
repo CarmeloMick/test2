@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bus & Weather Dashboard (Data.gov.hk Edition)</title>
+  <title>Bus & Weather Dashboard (rt.data.gov.hk Edition)</title>
   <script src="config.js"></script>
   <style>
     /* 全局重設：確保無滾動條，完美填滿全屏 */
@@ -241,7 +241,7 @@
         <div id="clock" class="time-digital">00:00:00</div>
         <div id="date-string" class="date-text">----年--月--日 星期-</div>
       </div>
-      <div id="notice-board" class="notice-box">政府數據中心聯網中...</div>
+      <div id="notice-board" class="notice-box">聯網中...</div>
     </header>
 
     <main class="main-content">
@@ -268,7 +268,7 @@
   </div>
 
   <script>
-    // 安全驗證配置
+    // 驗證配置
     const config = window.DASHBOARD_CONFIG;
     if (!config) {
       document.body.innerHTML = "<h1 style='color:red;padding:20px;'>[Fatal] config.js 未成功加載。</h1>";
@@ -333,23 +333,7 @@
     }
 
     /**
-     * 帶有自動超時中斷的網路請求封裝
-     */
-    async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const response = await fetch(url, { ...options, signal: controller.signal });
-        clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        throw error;
-      }
-    }
-
-    /**
-     * 區塊 B：獲取九巴 ETA 數據（全面接軌政府開放數據平台專屬節點）
+     * 區塊 B：獲取九巴 ETA 數據（徹底對接正確的 rt.data.gov.hk 節點）
      */
     async function fetchBusETA() {
       const now = new Date();
@@ -359,19 +343,17 @@
         if (!target.stopId || !target.route) continue;
 
         try {
-          // 【核心重構】切換至 data.gov.hk 公共數據源鏡像 API。
-          // 此域名天然開啟 CORS (*)，100% 豁免 GitHub Pages 跨域沙盒攔截
-          const url = `https://api.data.gov.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
+          // 【終極修復】使用正確的實時交通專屬 Sub-domain。
+          // 絕不附加 Query string，絕不自訂 Headers，交由瀏覽器直接發起最純粹的原生跨域 fetch。
+          const url = `https://rt.data.gov.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
           
-          const response = await fetchWithTimeout(url, {}, 5000);
-          
+          const response = await fetch(url);
           if (!response.ok) {
             document.getElementById(`eta-${i}-0-time`).textContent = `HTTP ${response.status}`;
             continue;
           }
           
           const json = await response.json();
-          // 政府分發的 JSON 格式與原始數據一致，直接進行高階函數篩選
           const filtered = (json.data || []).filter(item => item.route === target.route);
           const sorted = filtered.filter(item => item.eta).sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
@@ -391,7 +373,7 @@
           }
         } catch (error) {
           console.error(`Gov KMB API Error [${target.route}]:`, error);
-          document.getElementById(`eta-${i}-0-time`).textContent = error.name === 'AbortError' ? "連線超時" : "讀取失敗";
+          document.getElementById(`eta-${i}-0-time`).textContent = "讀取失敗";
         }
       }
     }
@@ -405,7 +387,7 @@
       const warningUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc${cacheBust}`;
 
       try {
-        const res = await fetchWithTimeout(weatherUrl, {}, 5000);
+        const res = await fetch(weatherUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -422,7 +404,6 @@
           const iconId = data.icon[0];
           const fallbackEmoji = getWeatherEmoji(iconId);
           
-          // 雙軌降級防禦渲染：若圖片遭遇天文台官網防盜鏈攔截 (onerror)，瞬間無痕轉為高清晰度原生 Emoji
           DOM.weatherIcon.innerHTML = `
             <img src="https://www.hko.gov.hk/images/HKOWeatherIcon/pic${iconId}.png" 
                  alt="Weather" 
@@ -436,7 +417,7 @@
       }
 
       try {
-        const res = await fetchWithTimeout(warningUrl, {}, 5000);
+        const res = await fetch(warningUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const activeWarningKeys = Object.keys(data);
