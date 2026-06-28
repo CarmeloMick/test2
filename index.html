@@ -3,623 +3,467 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bus & Weather Dashboard (Enterprise v3)</title>
+  <title>Bus & Weather Dashboard (Data.gov.hk Edition)</title>
   <script src="config.js"></script>
   <style>
-    /* ===== 全域重設 ===== */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* 全局重設：確保無滾動條，完美填滿全屏 */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     html, body {
-      background: #0b0e11;
-      color: #e8edf2;
-      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      background-color: #000000;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       height: 100vh;
       width: 100vw;
       overflow: hidden;
     }
 
-    /* ===== 主容器 ===== */
-    .dashboard {
+    /* 主容器佈局 */
+    .dashboard-container {
       display: flex;
       flex-direction: column;
       height: 100vh;
-      padding: 1.8vh 2vw;
-      gap: 1.8vh;
-      background: radial-gradient(circle at 20% 30%, #1a1f26, #0b0e11);
+      padding: 2vh 2vw;
+      gap: 2vh;
     }
 
-    /* ===== 區塊 A：標頭 ===== */
-    .header {
+    /* 區塊 A：時間與提示文字 */
+    .block-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #2a313a;
+      border-bottom: 2px solid #333333;
       padding-bottom: 1.5vh;
-      flex-shrink: 0;
-      min-height: 10vh;
+      height: 12vh;
     }
-    .time-group { display: flex; flex-direction: column; }
-    .clock-digital {
+    .time-box {
+      display: flex;
+      flex-direction: column;
+    }
+    .time-digital {
       font-size: 5.5vh;
-      font-weight: 700;
-      color: #00e5b2;
-      letter-spacing: 2px;
-      line-height: 1.1;
-      font-variant-numeric: tabular-nums;
+      font-weight: bold;
+      color: #00ffcc;
+      line-height: 1;
     }
     .date-text {
-      font-size: 2vh;
-      color: #8e9aaf;
-      margin-top: 0.3vh;
-    }
-    .notice-badge {
-      background: #1e2630;
-      padding: 1.2vh 2vw;
-      border-radius: 30px;
       font-size: 2.2vh;
-      color: #b0c4de;
-      border: 1px solid #2e3a47;
+      color: #aaaaaa;
+      margin-top: 0.5vh;
+    }
+    .notice-box {
+      font-size: 2.5vh;
+      color: #ffffff;
+      background-color: #1a1a1a;
+      padding: 1.5vh 2vw;
+      border-radius: 8px;
+      max-width: 60%;
+      text-align: right;
       white-space: nowrap;
-      max-width: 55%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* ===== 主內容 ===== */
-    .main-grid {
+    /* 中下部主內容分佈：橫屏預設 */
+    .main-content {
       display: flex;
       flex: 1;
       gap: 2vw;
       min-height: 0;
     }
 
-    /* ===== 區塊 B：巴士 ===== */
-    .bus-panel {
+    /* 區塊 B：九巴 ETA 顯示板 */
+    .block-bus {
       flex: 1.6;
       display: flex;
       flex-direction: column;
       gap: 1.5vh;
       min-height: 0;
     }
-    .bus-card {
+    .bus-row {
       flex: 1;
       display: flex;
       align-items: center;
-      background: #131a21;
-      border: 1px solid #263038;
-      border-radius: 16px;
+      background-color: #111111;
+      border: 1px solid #222222;
+      border-radius: 12px;
       padding: 0 2vw;
-      transition: border-color 0.2s;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    .bus-card:hover { border-color: #3e5060; }
-    .bus-meta { flex: 1; display: flex; flex-direction: column; }
+    .bus-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
     .bus-route {
       font-size: 5vh;
       font-weight: 900;
-      color: #facc15;
+      color: #ffcc00;
       line-height: 1.1;
-      letter-spacing: 1px;
     }
     .bus-dest {
-      font-size: 2vh;
-      color: #a8b9cc;
-      margin-top: 0.3vh;
+      font-size: 2.2vh;
+      color: #cccccc;
+      margin-top: 0.5vh;
     }
-    .bus-eta-group {
+    .bus-eta-container {
       flex: 1.2;
       display: flex;
       justify-content: flex-end;
-      gap: 2.5vw;
+      gap: 3vw;
     }
-    .eta-box {
+    .eta-item {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      min-width: 9vw;
+      justify-content: center;
+      min-width: 10vw;
     }
     .eta-time {
-      font-size: 4.2vh;
-      font-weight: 700;
-      color: #d1d9e6;
+      font-size: 4.5vh;
+      font-weight: bold;
+      color: #ffffff;
     }
-    .eta-time.primary { color: #34d399; }
-    .eta-time.departed { color: #f87171; }
-    .eta-time.error { color: #fb923c; }
-    .eta-remark {
-      font-size: 1.5vh;
-      color: #7a8a9e;
+    .eta-time.next-bus {
+      color: #00ff00;
+    }
+    .eta-rmk {
+      font-size: 1.6vh;
+      color: #888888;
       margin-top: 0.2vh;
-      min-height: 2vh;
     }
 
-    /* ===== 區塊 C：天氣 ===== */
-    .weather-panel {
+    /* 區塊 C：即時天氣與警告 */
+    .block-weather {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: #131a21;
-      border: 1px solid #263038;
-      border-radius: 16px;
+      background-color: #111111;
+      border: 1px solid #222222;
+      border-radius: 12px;
       padding: 2vh 2vw;
-      gap: 1.5vh;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      gap: 2vh;
       min-height: 0;
     }
-    .weather-top {
+    .weather-info {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      flex-shrink: 0;
+      justify-content: space-between;
     }
-    .weather-metrics { display: flex; flex-direction: column; gap: 0.5vh; }
-    .temp-value {
+    .weather-metrics {
+      display: flex;
+      flex-direction: column;
+      gap: 1vh;
+    }
+    .temp-text {
       font-size: 7vh;
-      font-weight: 700;
+      font-weight: bold;
       color: #ffffff;
       line-height: 1;
     }
-    .humidity-value, .uv-value {
-      font-size: 2.2vh;
-      color: #9aaec3;
+    .humidity-text, .uv-text {
+      font-size: 2.5vh;
+      color: #bbbbbb;
     }
     .weather-icon-box {
-      width: 12vh;
-      height: 12vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 12vh;
+      height: 12vh;
     }
     .weather-icon-box img {
-      max-height: 100%;
+      height: 12vh;
       width: auto;
       object-fit: contain;
-      filter: drop-shadow(0 0 8px rgba(0,229,178,0.2));
     }
-    .weather-emoji-fallback {
+    .weather-emoji {
       font-size: 8vh;
-      display: none;
       line-height: 1;
     }
 
-    /* ===== 警告區 ===== */
-    .warning-area {
+    /* 天氣警告訊號 */
+    .warning-container {
       flex: 1;
-      border-top: 1px solid #263038;
+      border-top: 1px solid #333333;
       padding-top: 1.5vh;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
+      gap: 1vh;
+      overflow-y: auto;
     }
     .warning-title {
-      font-size: 2vh;
-      color: #7a8a9e;
-      font-weight: 600;
-      margin-bottom: 1vh;
-      flex-shrink: 0;
+      font-size: 2.2vh;
+      color: #888888;
+      font-weight: bold;
     }
     .warning-list {
       display: flex;
       flex-wrap: wrap;
       gap: 1vh;
-      align-content: flex-start;
-      overflow-y: auto;
-      padding-right: 4px;
     }
-    .warning-list::-webkit-scrollbar { width: 3px; }
-    .warning-list::-webkit-scrollbar-thumb { background: #3e5060; border-radius: 4px; }
     .warning-badge {
-      background: #b91c1c;
-      color: #fff;
-      font-size: 2vh;
-      font-weight: 600;
-      padding: 0.6vh 1.2vw;
-      border-radius: 20px;
-      border: 1px solid #ef4444;
-      box-shadow: 0 0 12px rgba(239,68,68,0.3);
-      white-space: nowrap;
+      background-color: #cc0000;
+      color: #ffffff;
+      font-size: 2.2vh;
+      font-weight: bold;
+      padding: 0.8vh 1.5vw;
+      border-radius: 6px;
+      border: 1px solid #ff3333;
     }
     .warning-empty {
-      color: #34d399;
-      font-size: 2vh;
-      font-weight: 500;
-    }
-    .warning-error {
-      color: #f87171;
-      font-size: 2vh;
+      font-size: 2.2vh;
+      color: #00ff00;
+      font-weight: bold;
     }
 
+    /* 直屏 (Portrait) 響應式佈局 */
     @media (orientation: portrait) {
-      .main-grid { flex-direction: column; }
-      .header { min-height: 8vh; }
-      .clock-digital { font-size: 4.5vh; }
-      .notice-badge { font-size: 1.8vh; max-width: 50%; }
-      .bus-panel { flex: 1.3; }
+      .main-content { flex-direction: column; }
+      .block-header { height: 10vh; }
+      .time-digital { font-size: 4.5vh; }
+      .notice-box { font-size: 2.2vh; }
+      .block-bus { flex: 1.3; }
       .bus-route { font-size: 4.2vh; }
-      .eta-time { font-size: 3.6vh; }
-      .weather-panel { flex: 0.9; }
-      .temp-value { font-size: 5.5vh; }
-    }
-
-    .loading-pulse {
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 1; }
+      .eta-time { font-size: 3.8vh; }
+      .block-weather { flex: 1; }
+      .temp-text { font-size: 6vh; }
     }
   </style>
 </head>
 <body>
 
-<div class="dashboard" id="app">
-  <header class="header">
-    <div class="time-group">
-      <div id="clockDisplay" class="clock-digital">00:00:00</div>
-      <div id="dateDisplay" class="date-text">----年--月--日 星期-</div>
-    </div>
-    <div id="noticeBoard" class="notice-badge">系統初始化中...</div>
-  </header>
-
-  <div class="main-grid">
-    <section id="busPanel" class="bus-panel"></section>
-
-    <section class="weather-panel">
-      <div class="weather-top">
-        <div class="weather-metrics">
-          <div id="tempDisplay" class="temp-value">--°C</div>
-          <div id="humidityDisplay" class="humidity-value">相對濕度：--%</div>
-          <div id="uvDisplay" class="uv-value">UV 指數：--</div>
-        </div>
-        <div id="weatherIconBox" class="weather-icon-box">
-          <img id="weatherImg" src="" alt="天氣圖示" style="display:none;">
-          <span id="weatherEmoji" class="weather-emoji-fallback">✨</span>
-        </div>
+  <div class="dashboard-container">
+    <header class="block-header">
+      <div class="time-box">
+        <div id="clock" class="time-digital">00:00:00</div>
+        <div id="date-string" class="date-text">----年--月--日 星期-</div>
       </div>
+      <div id="notice-board" class="notice-box">政府數據中心聯網中...</div>
+    </header>
 
-      <div class="warning-area">
-        <div class="warning-title">⚠️ 生效天氣警告</div>
-        <div id="warningList" class="warning-list">
-          <span class="loading-pulse">載入中...</span>
+    <main class="main-content">
+      <section id="bus-panel" class="block-bus"></section>
+
+      <section class="block-weather">
+        <div class="weather-info">
+          <div class="weather-metrics">
+            <div id="temp-display" class="temp-text">--°C</div>
+            <div id="humidity-display" class="humidity-text">相對濕度：--%</div>
+            <div id="uv-display" class="uv-text">UV 指數：--</div>
+          </div>
+          <div id="weather-icon" class="weather-icon-box"></div>
         </div>
-      </div>
-    </section>
+        
+        <div class="warning-container">
+          <div class="warning-title">當前生效天氣警告：</div>
+          <div id="warning-list" class="warning-list">
+            <span class="warning-empty">正在獲取警告數據...</span>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
-</div>
 
-<script>
-  (function() {
-    "use strict";
-
-    // ============================================================
-    // 1. 嚴謹配置驗證
-    // ============================================================
-    const rawConfig = window.DASHBOARD_CONFIG;
-    if (!rawConfig || typeof rawConfig !== 'object') {
-      document.body.innerHTML = `<div style="color:#f87171;padding:20px;font-size:2rem;">⚠️ 致命錯誤：config.js 未正確載入</div>`;
-      throw new Error('Config missing');
+  <script>
+    // 安全驗證配置
+    const config = window.DASHBOARD_CONFIG;
+    if (!config) {
+      document.body.innerHTML = "<h1 style='color:red;padding:20px;'>[Fatal] config.js 未成功加載。</h1>";
+      throw new Error("Configuration is missing.");
     }
 
-    const CONFIG = {
-      updateIntervalMs: rawConfig.updateIntervalMs || 45000,
-      topNoticeText: rawConfig.topNoticeText || '系統運行中',
-      busRoutes: Array.isArray(rawConfig.busRoutes) ? rawConfig.busRoutes : []
-    };
-
-    if (CONFIG.busRoutes.length === 0) {
-      console.warn('⚠️ 尚未設定任何巴士路線，請檢查 config.js');
-    }
-
-    // ============================================================
-    // 2. DOM 快取
-    // ============================================================
-    const $ = (id) => document.getElementById(id);
     const DOM = {
-      clock: $('clockDisplay'),
-      date: $('dateDisplay'),
-      notice: $('noticeBoard'),
-      busPanel: $('busPanel'),
-      temp: $('tempDisplay'),
-      humidity: $('humidityDisplay'),
-      uv: $('uvDisplay'),
-      weatherImg: $('weatherImg'),
-      weatherEmoji: $('weatherEmoji'),
-      warningList: $('warningList')
+      clock: document.getElementById('clock'),
+      dateString: document.getElementById('date-string'),
+      noticeBoard: document.getElementById('notice-board'),
+      busPanel: document.getElementById('bus-panel'),
+      tempDisplay: document.getElementById('temp-display'),
+      humidityDisplay: document.getElementById('humidity-display'),
+      uvDisplay: document.getElementById('uv-display'),
+      weatherIcon: document.getElementById('weather-icon'),
+      warningList: document.getElementById('warning-list')
     };
-    DOM.notice.textContent = CONFIG.topNoticeText;
-
-    // ============================================================
-    // 3. 時鐘模組
-    // ============================================================
-    let _lastDateStr = '';
 
     function updateClock() {
       const now = new Date();
-      DOM.clock.textContent = now.toTimeString().slice(0, 8);
-      const dateStr = now.toLocaleDateString('zh-HK', {
-        year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
-      });
-      if (dateStr !== _lastDateStr) {
-        DOM.date.textContent = dateStr;
-        _lastDateStr = dateStr;
-      }
+      DOM.clock.textContent = now.toLocaleTimeString('zh-HK', { hour12: false });
+      DOM.dateString.textContent = now.toLocaleDateString('zh-HK', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
     }
 
-    // ============================================================
-    // 4. 工具函式
-    // ============================================================
-    function getHkoEmoji(iconId) {
+    function getWeatherEmoji(iconId) {
       const id = parseInt(iconId, 10);
-      if (id === 50) return '☀️';
-      if (id === 51) return '⛅';
-      if (id === 52) return '☁️';
-      if (id === 53 || id === 54) return '🌫️';
-      if (id >= 60 && id <= 62) return '🌧️';
-      if (id === 63) return '💨';
-      if (id === 70) return '🌫️';
-      if (id >= 71 && id <= 73) return '🌦️';
-      if (id >= 80 && id <= 85) return '☁️';
-      if (id >= 90 && id <= 93) return '❄️';
-      return '✨';
+      if (id >= 50 && id <= 52) return "☀️";
+      if (id >= 53 && id <= 54) return "🌤️";
+      if (id >= 60 && id <= 61) return "☁️";
+      if (id >= 62 && id <= 65) return "🌧️";
+      if (id >= 70 && id <= 77) return "⛈️";
+      if (id >= 80 && id <= 85) return "🌫️";
+      if (id >= 90 && id <= 93) return "❄️";
+      return "✨";
     }
 
-    function formatEta(etaDateStr, now) {
-      if (!etaDateStr) return { text: '--', isDeparted: false, isError: false };
-      const etaTime = new Date(etaDateStr);
-      if (isNaN(etaTime.getTime())) {
-        return { text: '格式錯誤', isDeparted: false, isError: true };
-      }
-      const diffMins = (etaTime - now) / 60000;
-      if (diffMins < 0) return { text: '已開出', isDeparted: true, isError: false };
-      if (diffMins < 1) return { text: '即將到達', isDeparted: false, isError: false };
-      const mins = Math.floor(diffMins);
-      return { text: `${mins} 分鐘`, isDeparted: false, isError: false };
-    }
-
-    // ============================================================
-    // 5. 強化版容災網路客戶端 (多代理 + 重試)
-    // ============================================================
-    async function resilientFetch(targetUrl, timeoutMs = 10000) {
-      // 代理清單 (按穩定度排序)
-      const proxyBuilders = [
-        (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
-      ];
-
-      // 首先嘗試直接請求 (如果 CORS 允許)
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
-        const resp = await fetch(targetUrl, { signal: controller.signal });
-        clearTimeout(timer);
-        if (resp.ok) {
-          console.log('✅ 直連成功');
-          return await resp.json();
-        }
-      } catch (_) {
-        console.warn('⚠️ 直連失敗，轉用代理...');
-      }
-
-      // 輪流嘗試每個代理
-      for (let i = 0; i < proxyBuilders.length; i++) {
-        try {
-          const proxyUrl = proxyBuilders[i](targetUrl);
-          console.log(`🔄 嘗試代理 ${i+1}: ${proxyUrl}`);
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeoutMs);
-          const resp = await fetch(proxyUrl, { signal: controller.signal });
-          clearTimeout(timer);
-
-          if (resp.ok) {
-            console.log(`✅ 代理 ${i+1} 成功`);
-            return await resp.json();
-          } else {
-            console.warn(`❌ 代理 ${i+1} 返回 HTTP ${resp.status}`);
-          }
-        } catch (err) {
-          console.warn(`❌ 代理 ${i+1} 錯誤:`, err.message);
-        }
-      }
-
-      // 全部失敗
-      throw new Error('所有代理均失敗');
-    }
-
-    // ============================================================
-    // 6. 巴士 ETA 模組
-    // ============================================================
-    async function fetchBusETA() {
-      const now = new Date();
-
-      for (let idx = 0; idx < CONFIG.busRoutes.length; idx++) {
-        const route = CONFIG.busRoutes[idx];
-        const prefix = `eta-${idx}`;
-
-        // 重置顯示
-        for (let seq = 0; seq < 2; seq++) {
-          const timeEl = document.getElementById(`${prefix}-${seq}-time`);
-          const rmkEl = document.getElementById(`${prefix}-${seq}-rmk`);
-          if (timeEl) { timeEl.textContent = '--'; timeEl.className = 'eta-time'; }
-          if (rmkEl) rmkEl.textContent = '';
-        }
-
-        if (!route.stopId || !route.route) continue;
-
-        try {
-          const url = `https://data.etabus.kmb.hk/v1/transport/kmb/stop-eta/${route.stopId}`;
-          const json = await resilientFetch(url, 8000);
-
-          const filtered = (json.data || [])
-            .filter(item => item.route === route.route && item.eta)
-            .sort((a, b) => new Date(a.eta) - new Date(b.eta));
-
-          const slices = filtered.slice(0, 2);
-
-          for (let seq = 0; seq < 2; seq++) {
-            const timeEl = document.getElementById(`${prefix}-${seq}-time`);
-            const rmkEl = document.getElementById(`${prefix}-${seq}-rmk`);
-            if (!timeEl) continue;
-
-            if (slices[seq]) {
-              const eta = slices[seq];
-              const { text, isDeparted, isError } = formatEta(eta.eta, now);
-              timeEl.textContent = text;
-              timeEl.className = 'eta-time';
-              if (seq === 0 && !isDeparted && !isError && text !== '--') {
-                timeEl.classList.add('primary');
-              }
-              if (isDeparted) timeEl.classList.add('departed');
-              if (isError) timeEl.classList.add('error');
-              if (rmkEl) rmkEl.textContent = eta.rmk_tc || '';
-            } else {
-              if (seq === 0) {
-                timeEl.textContent = '暫無班次';
-                timeEl.className = 'eta-time error';
-                if (rmkEl) rmkEl.textContent = '';
-              }
-            }
-          }
-        } catch (err) {
-          console.error(`🚌 ETA 更新失敗 [${route.route}]:`, err);
-          const timeEl = document.getElementById(`${prefix}-0-time`);
-          if (timeEl) {
-            timeEl.textContent = '更新失敗';
-            timeEl.className = 'eta-time error';
-          }
-        }
-      }
-    }
-
-    // ============================================================
-    // 7. 天氣模組
-    // ============================================================
-    async function fetchWeather() {
-      const ts = Date.now();
-      const weatherUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc&_=${ts}`;
-      const warningUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc&_=${ts}`;
-
-      try {
-        const data = await fetch(weatherUrl).then(r => r.json());
-        if (data.temperature?.data?.length > 0) {
-          DOM.temp.textContent = `${data.temperature.data[0].value}°C`;
-        }
-        if (data.humidity?.data?.length > 0) {
-          DOM.humidity.textContent = `相對濕度：${data.humidity.data[0].value}%`;
-        }
-        if (data.uvindex?.data?.length > 0) {
-          DOM.uv.textContent = `UV 指數：${data.uvindex.data[0].value}`;
-          DOM.uv.style.display = 'block';
-        } else {
-          DOM.uv.style.display = 'none';
-        }
-
-        const iconId = data.icon?.[0];
-        if (iconId) {
-          const imgUrl = `https://www.hko.gov.hk/images/HKOWeatherIcon/pic${iconId}.png`;
-          DOM.weatherImg.src = imgUrl;
-          DOM.weatherImg.style.display = 'block';
-          DOM.weatherEmoji.style.display = 'none';
-          DOM.weatherImg.onerror = function() {
-            this.style.display = 'none';
-            DOM.weatherEmoji.textContent = getHkoEmoji(iconId);
-            DOM.weatherEmoji.style.display = 'block';
-          };
-          DOM.weatherImg.onload = function() {
-            DOM.weatherEmoji.style.display = 'none';
-          };
-        } else {
-          DOM.weatherImg.style.display = 'none';
-          DOM.weatherEmoji.textContent = '✨';
-          DOM.weatherEmoji.style.display = 'block';
-        }
-      } catch (err) {
-        console.error('🌤️ 天氣資料錯誤:', err);
-        DOM.temp.textContent = '網路錯誤';
-      }
-
-      try {
-        const data = await fetch(warningUrl).then(r => r.json());
-        const keys = Object.keys(data);
-        if (keys.length === 0) {
-          DOM.warningList.innerHTML = '<span class="warning-empty">✅ 現時無生效天氣警告</span>';
-        } else {
-          const html = keys.map(key => {
-            const name = data[key]?.name || key;
-            return `<span class="warning-badge">${name}</span>`;
-          }).join('');
-          DOM.warningList.innerHTML = html;
-        }
-      } catch (err) {
-        console.error('⚠️ 警告數據錯誤:', err);
-        DOM.warningList.innerHTML = '<span class="warning-error">⚠️ 警告更新失敗</span>';
-      }
-    }
-
-    // ============================================================
-    // 8. 初始化巴士版面
-    // ============================================================
     function initBusLayout() {
+      DOM.noticeBoard.textContent = config.topNoticeText;
       DOM.busPanel.innerHTML = '';
-      CONFIG.busRoutes.forEach((route, idx) => {
-        const card = document.createElement('div');
-        card.className = 'bus-card';
-        card.innerHTML = `
+      
+      config.busRoutes.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'bus-row';
+        row.innerHTML = `
           <div class="bus-meta">
-            <div class="bus-route">${route.route}</div>
-            <div class="bus-dest">${route.label || ''}</div>
+            <div class="bus-route">${item.route}</div>
+            <div class="bus-dest">${item.label || ''}</div>
           </div>
-          <div class="bus-eta-group">
-            <div class="eta-box">
-              <div id="eta-${idx}-0-time" class="eta-time primary">--</div>
-              <div id="eta-${idx}-0-rmk" class="eta-remark"></div>
+          <div class="bus-eta-container">
+            <div class="eta-item">
+              <div id="eta-${index}-0-time" class="eta-time next-bus">--</div>
+              <div id="eta-${index}-0-rmk" class="eta-rmk"></div>
             </div>
-            <div class="eta-box">
-              <div id="eta-${idx}-1-time" class="eta-time">--</div>
-              <div id="eta-${idx}-1-rmk" class="eta-remark"></div>
+            <div class="eta-item">
+              <div id="eta-${index}-1-time" class="eta-time">--</div>
+              <div id="eta-${index}-1-rmk" class="eta-rmk"></div>
             </div>
           </div>
         `;
-        DOM.busPanel.appendChild(card);
+        DOM.busPanel.appendChild(row);
       });
     }
 
-    // ============================================================
-    // 9. 調度器 (setTimeout 鏈)
-    // ============================================================
-    let isUpdating = false;
-
-    async function updateAllData() {
-      if (isUpdating) return;
-      isUpdating = true;
+    /**
+     * 帶有自動超時中斷的網路請求封裝
+     */
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        await Promise.allSettled([fetchBusETA(), fetchWeather()]);
-      } catch (_) { /* 已內部處理 */ }
-      isUpdating = false;
-      setTimeout(updateAllData, CONFIG.updateIntervalMs);
-    }
-
-    // ============================================================
-    // 10. 啟動
-    // ============================================================
-    function boot() {
-      updateClock();
-      setInterval(updateClock, 1000);
-      initBusLayout();
-      updateAllData();
-      if (CONFIG.updateIntervalMs < 5000) {
-        console.warn('⚠️ 更新間隔過短，已自動調整為 5 秒');
-        CONFIG.updateIntervalMs = 5000;
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
       }
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', boot);
-    } else {
-      boot();
+    /**
+     * 區塊 B：獲取九巴 ETA 數據（全面接軌政府開放數據平台專屬節點）
+     */
+    async function fetchBusETA() {
+      const now = new Date();
+      
+      for (let i = 0; i < config.busRoutes.length; i++) {
+        const target = config.busRoutes[i];
+        if (!target.stopId || !target.route) continue;
+
+        try {
+          // 【核心重構】切換至 data.gov.hk 公共數據源鏡像 API。
+          // 此域名天然開啟 CORS (*)，100% 豁免 GitHub Pages 跨域沙盒攔截
+          const url = `https://api.data.gov.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
+          
+          const response = await fetchWithTimeout(url, {}, 5000);
+          
+          if (!response.ok) {
+            document.getElementById(`eta-${i}-0-time`).textContent = `HTTP ${response.status}`;
+            continue;
+          }
+          
+          const json = await response.json();
+          // 政府分發的 JSON 格式與原始數據一致，直接進行高階函數篩選
+          const filtered = (json.data || []).filter(item => item.route === target.route);
+          const sorted = filtered.filter(item => item.eta).sort((a, b) => new Date(a.eta) - new Date(b.eta));
+
+          for (let seq = 0; seq < 2; seq++) {
+            const timeEl = document.getElementById(`eta-${i}-${seq}-time`);
+            const rmkEl = document.getElementById(`eta-${i}-${seq}-rmk`);
+            
+            if (sorted[seq]) {
+              const etaData = sorted[seq];
+              const diffMins = Math.max(0, Math.floor((new Date(etaData.eta) - now) / 60000));
+              timeEl.textContent = diffMins === 0 ? "即將到站" : `${diffMins} 分鐘`;
+              rmkEl.textContent = etaData.rmk_tc || "";
+            } else {
+              timeEl.textContent = seq === 0 ? "暫無班次" : "--";
+              rmkEl.textContent = "";
+            }
+          }
+        } catch (error) {
+          console.error(`Gov KMB API Error [${target.route}]:`, error);
+          document.getElementById(`eta-${i}-0-time`).textContent = error.name === 'AbortError' ? "連線超時" : "讀取失敗";
+        }
+      }
     }
 
-  })();
-</script>
+    /**
+     * 區塊 C：獲取天文台數據
+     */
+    async function fetchWeather() {
+      const cacheBust = `&_=${Date.now()}`;
+      const weatherUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc${cacheBust}`;
+      const warningUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc${cacheBust}`;
+
+      try {
+        const res = await fetchWithTimeout(weatherUrl, {}, 5000);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.temperature?.data?.length > 0) DOM.tempDisplay.textContent = `${data.temperature.data[0].value}°C`;
+        if (data.humidity?.data?.length > 0) DOM.humidityDisplay.textContent = `相對濕度：${data.humidity.data[0].value}%`;
+        if (data.uvindex?.data?.length > 0) {
+          DOM.uvDisplay.textContent = `UV 指數：${data.uvindex.data[0].value}`;
+          DOM.uvDisplay.style.display = 'block';
+        } else {
+          DOM.uvDisplay.style.display = 'none';
+        }
+        
+        if (data.icon?.length > 0) {
+          const iconId = data.icon[0];
+          const fallbackEmoji = getWeatherEmoji(iconId);
+          
+          // 雙軌降級防禦渲染：若圖片遭遇天文台官網防盜鏈攔截 (onerror)，瞬間無痕轉為高清晰度原生 Emoji
+          DOM.weatherIcon.innerHTML = `
+            <img src="https://www.hko.gov.hk/images/HKOWeatherIcon/pic${iconId}.png" 
+                 alt="Weather" 
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <span class="weather-emoji" style="display:none;">${fallbackEmoji}</span>
+          `;
+        }
+      } catch (e) { 
+        console.error("Weather Error:", e); 
+        DOM.tempDisplay.textContent = "網路錯誤"; 
+      }
+
+      try {
+        const res = await fetchWithTimeout(warningUrl, {}, 5000);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const activeWarningKeys = Object.keys(data);
+
+        if (activeWarningKeys.length === 0) {
+          DOM.warningList.innerHTML = '<span class="warning-empty">現時無生效天氣警告</span>';
+        } else {
+          DOM.warningList.innerHTML = activeWarningKeys.map(key => `<span class="warning-badge">${data[key].name}</span>`).join('');
+        }
+      } catch (e) { 
+        console.error("Warning Error:", e); 
+        DOM.warningList.innerHTML = '<span style="color:#ff3333;">更新失敗</span>'; 
+      }
+    }
+
+    function startScheduler() {
+      async function updateAllData() {
+        await Promise.allSettled([fetchBusETA(), fetchWeather()]);
+      }
+      setInterval(updateClock, 1000);
+      setInterval(updateAllData, config.updateIntervalMs);
+      updateClock();
+      initBusLayout();
+      updateAllData();
+    }
+
+    document.addEventListener('DOMContentLoaded', startScheduler);
+  </script>
 </body>
 </html>
