@@ -6,7 +6,7 @@
   <title>Bus & Weather Dashboard (Enterprise Production)</title>
   <script src="config.js"></script>
   <style>
-    /* 全局重設 */
+    /* 全局重設：確保完美填滿螢幕 */
     * {
       box-sizing: border-box;
       margin: 0;
@@ -241,7 +241,7 @@
         <div id="clock" class="time-digital">00:00:00</div>
         <div id="date-string" class="date-text">----年--月--日 星期-</div>
       </div>
-      <div id="notice-board" class="notice-box">系統安全初始化...</div>
+      <div id="notice-board" class="notice-box">系統安全部署中...</div>
     </header>
 
     <main class="main-content">
@@ -268,11 +268,11 @@
   </div>
 
   <script>
-    // 嚴格配置檢查機制
+    // 驗證配置
     const config = window.DASHBOARD_CONFIG;
     if (!config) {
-      document.body.innerHTML = "<h1 style='color:red;padding:20px;'>[Fatal] config.js 未能成功掛載至 window。</h1>";
-      throw new Error("Config verification failed.");
+      document.body.innerHTML = "<h1 style='color:red;padding:20px;'>[Fatal] config.js 未成功加載。</h1>";
+      throw new Error("Configuration is missing.");
     }
 
     const DOM = {
@@ -333,11 +333,31 @@
     }
 
     /**
-     * 區塊 B：獲取九巴 ETA 數據（高可用 CORS 代理優化版）
+     * 雙軌容災高可用網路客戶端 (Resilient Fetch Client)
+     * 解決 KMB API 無 CORS 標頭且防禦公共代理 530 Cloudflare 阻擋
      */
+    async function fetchKmbData(targetUrl) {
+      // 軌道一：嘗試純淨直連（部分現代瀏覽器環境在無自訂標頭時可直接放行）
+      try {
+        const response = await fetch(targetUrl);
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (directError) {
+        console.warn("Direct connection sandboxed by CORS, switching to backup track...");
+      }
+
+      // 軌道二：自動切換至開源分散式的 AllOrigins 代理（無 Cloudflare 530 封鎖風險）
+      const backupUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      const response = await fetch(backupUrl);
+      if (!response.ok) {
+        throw new Error(`AllOrigins Failover failed with status ${response.status}`);
+      }
+      return await response.json();
+    }
+
     async function fetchBusETA() {
       const now = new Date();
-      
       for (let i = 0; i < config.busRoutes.length; i++) {
         const target = config.busRoutes[i];
         if (!target.stopId || !target.route) continue;
@@ -345,18 +365,9 @@
         try {
           const targetUrl = `https://data.etabus.kmb.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
           
-          // 【工業級修復】利用 corsproxy.io 線上隧道中轉請求，繞過瀏覽器 GitHub Pages 的同源攔截
-          // 網卡層會自動在後方附帶 Origin 標頭通關
-          const proxiedUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+          // 透過防禦性客戶端撈取資料
+          const json = await fetchKmbData(targetUrl);
           
-          const response = await fetch(proxiedUrl, { cache: "no-store" });
-          
-          if (!response.ok) {
-            document.getElementById(`eta-${i}-0-time`).textContent = `HTTP ${response.status}`;
-            continue;
-          }
-          
-          const json = await response.json();
           const filtered = (json.data || []).filter(item => item.route === target.route);
           const sorted = filtered.filter(item => item.eta).sort((a, b) => new Date(a.eta) - new Date(b.eta));
 
@@ -375,15 +386,12 @@
             }
           }
         } catch (error) {
-          console.error(`KMB CORS Error [${target.route}]:`, error);
-          document.getElementById(`eta-${i}-0-time`).textContent = "連線受阻";
+          console.error(`Fatal ETA Error [${target.route}]:`, error);
+          document.getElementById(`eta-${i}-0-time`).textContent = "更新失敗";
         }
       }
     }
 
-    /**
-     * 區塊 C：獲取天文台天氣及警告數據
-     */
     async function fetchWeather() {
       const cacheBust = `&_=${Date.now()}`;
       const weatherUrl = `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc${cacheBust}`;
@@ -407,7 +415,6 @@
           const iconId = data.icon[0];
           const fallbackEmoji = getWeatherEmoji(iconId);
           
-          // 雙軌防禦渲染：若圖片遭跨域阻擋 (onerror)，瞬時切換為 iPad 原生高清晰度 Emoji
           DOM.weatherIcon.innerHTML = `
             <img src="https://www.hko.gov.hk/images/HKOWeatherIcon/pic${iconId}.png" 
                  alt="Weather" 
