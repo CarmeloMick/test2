@@ -1,6 +1,6 @@
 /**
  * 舊 iPad 專用資訊看板 - 用戶自訂設定檔
- * 核心數據對接：香港政府官方過濾與代理網關 (api.data.gov.hk/v1/filter)
+ * 數據源：香港政府開放數據平台指定九巴專線 (data.etabus.kmb.hk)
  */
 window.DASHBOARD_CONFIG = {
   // 區塊 A：頂部自訂提示文字
