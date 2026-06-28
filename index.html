@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bus & Weather Dashboard (Data.gov.hk Standard)</title>
+  <title>Bus & Weather Dashboard (Official Government Line)</title>
   <script src="config.js"></script>
   <style>
     /* 全局重設：黑底、高對比、不出現滾動條 */
@@ -219,7 +219,7 @@
       font-weight: bold;
     }
 
-    /* 直屏 (Portrait) 響應式佈局 */
+    /* 直屏 (Portrait) 響應式 */
     @media (orientation: portrait) {
       .main-content { flex-direction: column; }
       .block-header { height: 10vh; }
@@ -333,7 +333,7 @@
     }
 
     /**
-     * 區塊 B：獲取九巴 ETA 數據（真正歸真反璞：零污染直連政府開放數據專線）
+     * 區塊 B：獲取九巴 ETA 數據（修正為真正正確的政府數據域名：data.etabus.gov.hk）
      */
     async function fetchBusETA() {
       const now = new Date();
@@ -343,13 +343,11 @@
         if (!target.stopId || !target.route) continue;
 
         try {
-          // 【真．正解】完全剔除所有 `?t=`、剔除所有自訂 headers 策略
-          // 用最純淨無污染的 URL 呼叫政府幫我們託管的開放數據九巴專線
-          const url = `https://data.etabus.kmb.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
+          // 【終極校正】修正域名為 data.etabus.gov.hk
+          // 不帶任何 Query parameters，不帶額外 Cache 限制頭，完美契合網關與 WebKit 網絡卡
+          const url = `https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${target.stopId}`;
           
-          // 執行純天然 fetch，此端點原生支援 CORS (*)，在 GitHub Pages 上能直接秒速通關！
           const response = await fetch(url);
-          
           if (!response.ok) {
             document.getElementById(`eta-${i}-0-time`).textContent = `HTTP ${response.status}`;
             continue;
@@ -374,7 +372,7 @@
             }
           }
         } catch (error) {
-          console.error(`KMB Stream Error [${target.route}]:`, error);
+          console.error(`KMB Error [${target.route}]:`, error);
           document.getElementById(`eta-${i}-0-time`).textContent = "讀取失敗";
         }
       }
